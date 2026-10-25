@@ -8,8 +8,12 @@ def create_app():
     app = Flask(__name__, template_folder='templates', static_folder='static')
 
     basedir = os.path.abspath(os.path.dirname(__file__))
-    app.config['SECRET_KEY'] = secrets.token_hex(32)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'attendance.db')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'attendtrack-secret-key-2026-production')
+    if os.environ.get('VERCEL'):
+        db_path = '/tmp/attendance.db'
+    else:
+        db_path = os.path.join(basedir, 'attendance.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
@@ -179,6 +183,7 @@ def seed_data():
         db.session.commit()
 
 
+app = create_app()
+
 if __name__ == '__main__':
-    application = create_app()
-    application.run(debug=True, port=5000)
+    app.run(debug=True, port=5000)

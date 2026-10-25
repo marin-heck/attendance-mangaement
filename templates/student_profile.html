@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}{{ student.full_name }} — AttendTrack{% endblock %}
+{% block page_title %}{{ student.full_name }}{% endblock %}
+{% block page_subtitle %}Student profile, contact details, and attendance history{% endblock %}
+
+{% block content %}
+<!-- Back Navigation -->
+<div class="mb-3">
+    <a href="{{ url_for('students.students_list', batch=student.batch_id) }}" class="btn btn-sm btn-ghost">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Students
+    </a>
+</div>
+
+<!-- Profile Card -->
+<div class="card mb-3">
+    <div class="profile-header mb-0">
+        <div class="profile-avatar">
+            {{ student.full_name[0] }}
+        </div>
+        <div class="profile-info" style="flex: 1;">
+            <div class="d-flex justify-between align-start flex-wrap gap-2">
+                <div>
+                    <h2>{{ student.full_name }}</h2>
+                    <div class="d-flex align-center gap-2 flex-wrap">
+                        <code class="fw-600" style="color: var(--text-heading); background: var(--bg-secondary); padding: 3px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                            {{ student.roll_number }}
+                        </code>
+                        <span class="badge badge-neutral">
+                            {{ student.batch.name if student.batch else 'Unassigned' }}
+                        </span>
+                        {% if student.is_active %}
+                        <span class="badge badge-success">Active Student</span>
+                        {% else %}
+                        <span class="badge badge-danger">Inactive</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if current_user.role in ('admin', 'teacher') %}
+                <div class="d-flex gap-1">
+                    <button class="btn btn-secondary btn-sm" onclick="openModal('editStudentModal')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        Edit Profile
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="profile-meta">
+                <span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    {{ student.email }}
+                </span>
+                {% if student.phone %}
+                <span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    {{ student.phone }}
+                </span>
+                {% endif %}
+                {% if student.date_of_birth %}
+                <span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    DOB: {{ student.date_of_birth.strftime('%d %b %Y') }}
+                </span>
+                {% endif %}
+                {% if student.address %}
+                <span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    {{ student.address }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Performance Stats Grid -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h3>Attendance Performance</h3>
+        <span class="badge {% if percentage >= 75 %}badge-success{% elif percentage >= 60 %}badge-warning{% else %}badge-danger{% endif %}">
+            {% if percentage >= 75 %}Good Standing{% elif percentage >= 60 %}Average{% else %}Critical (Below 75%){% endif %}
+        </span>
+    </div>
+
+    <div class="d-flex align-center gap-4 flex-wrap" style="padding-top: 8px;">
+        <!-- Conic Donut -->
+        {% set color = 'var(--success)' if percentage >= 75 else ('var(--warning)' if percentage >= 60 else 'var(--danger)') %}
+        <div class="donut-chart" style="background: conic-gradient({{ color }} 0% {{ percentage }}%, var(--border-color) {{ percentage }}% 100%);">
+            <div class="donut-inner">
+                <div class="donut-value">{{ percentage }}%</div>
+                <div class="donut-label">Overall</div>
+            </div>
+        </div>
+
+        <!-- Metric Stat Cards -->
+        <div class="d-flex gap-2 flex-wrap" style="flex: 1;">
+            <div style="flex: 1; min-width: 120px; padding: 14px 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <div class="fs-xs text-muted">Total Marked</div>
+                <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">{{ total }}</div>
+                <div class="fs-xs text-muted">Sessions</div>
+            </div>
+
+            <div style="flex: 1; min-width: 120px; padding: 14px 16px; background: var(--success-subtle); border-radius: var(--radius-md); border: 1px solid var(--success-border);">
+                <div class="fs-xs" style="color: var(--success-text); font-weight: 600;">Present</div>
+                <div style="font-size: 22px; font-weight: 800; color: var(--success-text); margin-top: 4px;">{{ present }}</div>
+                <div class="fs-xs text-muted">{{ (present / total * 100)|round(1) if total > 0 else 0 }}%</div>
+            </div>
+
+            <div style="flex: 1; min-width: 120px; padding: 14px 16px; background: var(--danger-subtle); border-radius: var(--radius-md); border: 1px solid var(--danger-border);">
+                <div class="fs-xs" style="color: var(--danger-text); font-weight: 600;">Absent</div>
+                <div style="font-size: 22px; font-weight: 800; color: var(--danger-text); margin-top: 4px;">{{ absent }}</div>
+                <div class="fs-xs text-muted">{{ (absent / total * 100)|round(1) if total > 0 else 0 }}%</div>
+            </div>
+
+            <div style="flex: 1; min-width: 120px; padding: 14px 16px; background: var(--warning-subtle); border-radius: var(--radius-md); border: 1px solid var(--warning-border);">
+                <div class="fs-xs" style="color: var(--warning-text); font-weight: 600;">Late</div>
+                <div style="font-size: 22px; font-weight: 800; color: var(--warning-text); margin-top: 4px;">{{ late }}</div>
+                <div class="fs-xs text-muted">{{ (late / total * 100)|round(1) if total > 0 else 0 }}%</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Breakdown Grid -->
+{% if monthly %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3>Monthly Trend</h3>
+        <span class="fs-xs text-muted">{{ monthly|length }} months recorded</span>
+    </div>
+    <div class="grid-2">
+        {% for month_name, m in monthly.items() %}
+        {% set m_pct = (m.present / m.total * 100)|round(1) if m.total > 0 else 0 %}
+        <div style="padding: 14px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <div class="d-flex justify-between align-center mb-1">
+                <span class="fw-600 text-heading">{{ month_name }}</span>
+                <span class="fs-xs fw-600" style="color: {% if m_pct >= 75 %}var(--success){% elif m_pct >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
+                    {{ m_pct }}%
+                </span>
+            </div>
+            <div class="percentage-bar mb-2" style="height: 6px;">
+                <div class="fill {% if m_pct >= 75 %}high{% elif m_pct >= 60 %}medium{% else %}low{% endif %}" style="width: {{ m_pct }}%;"></div>
+            </div>
+            <div class="d-flex justify-between fs-xs text-muted">
+                <span>Present: <strong class="text-heading">{{ m.present }}</strong></span>
+                <span>Absent: <strong class="text-heading">{{ m.absent }}</strong></span>
+                <span>Late: <strong class="text-heading">{{ m.late }}</strong></span>
+                <span>Total: <strong class="text-heading">{{ m.total }}</strong></span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Attendance Records -->
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="card-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border-color);">
+        <h3>Recent Attendance Log</h3>
+        <span class="fs-xs text-muted">Last {{ attendances|length }} recorded sessions</span>
+    </div>
+
+    {% if attendances %}
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Day</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                    <th>Recorded By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in attendances %}
+                <tr>
+                    <td class="fw-600 text-heading">
+                        {{ a.date.strftime('%d %b %Y') }}
+                    </td>
+                    <td class="text-secondary fs-xs">
+                        {{ a.date.strftime('%A') }}
+                    </td>
+                    <td>
+                        {% if a.status == 'present' %}
+                        <span class="badge badge-success">Present</span>
+                        {% elif a.status == 'absent' %}
+                        <span class="badge badge-danger">Absent</span>
+                        {% elif a.status == 'late' %}
+                        <span class="badge badge-warning">Late</span>
+                        {% endif %}
+                    </td>
+                    <td class="fs-xs text-muted">
+                        {{ a.remarks if a.remarks else '—' }}
+                    </td>
+                    <td class="fs-xs text-secondary">
+                        {{ a.teacher.full_name if a.teacher else 'System' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📅</div>
+        <h3>No attendance records yet</h3>
+        <p>No attendance has been logged for this student.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Edit Student Modal -->
+{% if current_user.role in ('admin', 'teacher') %}
+<div class="modal-overlay" id="editStudentModal">
+    <div class="modal-content" style="max-width: 540px;">
+        <div class="modal-header">
+            <h3>Edit Student Profile</h3>
+            <button type="button" class="btn-ghost" onclick="closeModal('editStudentModal')" style="padding: 4px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('students.edit_student', student_id=student.id) }}">
+            <div class="modal-body">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="editFullName">Full Name</label>
+                        <input type="text" id="editFullName" name="full_name" class="form-control" value="{{ student.full_name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Roll Number</label>
+                        <input type="text" class="form-control" value="{{ student.roll_number }}" disabled title="Roll number cannot be changed">
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="editEmail">Email Address</label>
+                        <input type="email" id="editEmail" name="email" class="form-control" value="{{ student.email }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editPhone">Phone Number</label>
+                        <input type="tel" id="editPhone" name="phone" class="form-control" value="{{ student.phone or '' }}">
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="editBatch">Batch Assignment</label>
+                        <select id="editBatch" name="batch_id" class="form-control" required>
+                            {% for b in batches %}
+                            <option value="{{ b.id }}" {% if student.batch_id == b.id %}selected{% endif %}>
+                                {{ b.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editDob">Date of Birth</label>
+                        <input type="date" id="editDob" name="date_of_birth" class="form-control" value="{{ student.date_of_birth.isoformat() if student.date_of_birth else '' }}">
+                    </div>
+                </div>
+
+                <div class="form-group mb-0">
+                    <label for="editAddress">Address</label>
+                    <textarea id="editAddress" name="address" class="form-control" rows="2">{{ student.address or '' }}</textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editStudentModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

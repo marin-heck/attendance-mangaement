@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Academic Batches — AttendTrack{% endblock %}
+{% block page_title %}Academic Batches{% endblock %}
+{% block page_subtitle %}Manage class cohorts, academic years, sections, and department rosters{% endblock %}
+
+{% block content %}
+<!-- Toolbar -->
+<div class="card mb-3">
+    <div class="d-flex justify-between align-center flex-wrap gap-2">
+        <div class="fs-xs text-muted">
+            Total Batches: <strong class="text-heading">{{ batch_data|length }}</strong>
+        </div>
+        {% if current_user.role == 'admin' %}
+        <div>
+            <button class="btn btn-primary" onclick="openModal('addBatchModal')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create Batch
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Batches Grid -->
+{% if batch_data %}
+<div class="grid-2">
+    {% for item in batch_data %}
+    {% set b = item.batch %}
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <div class="d-flex justify-between align-start mb-2">
+                <div>
+                    <h3 style="font-size: 17px; margin-bottom: 4px;">{{ b.name }}</h3>
+                    <div class="d-flex align-center gap-1 flex-wrap">
+                        <span class="badge badge-neutral">{{ b.department }}</span>
+                        <span class="badge badge-neutral">Sec {{ b.section }}</span>
+                        <span class="badge badge-neutral">Year {{ b.year }}</span>
+                    </div>
+                </div>
+                <div>
+                    {% if b.is_active %}
+                    <span class="badge badge-success">Active</span>
+                    {% else %}
+                    <span class="badge badge-danger">Inactive</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="d-flex align-center gap-3 py-2 my-2" style="border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
+                <div>
+                    <div class="fs-xs text-muted">Enrolled Students</div>
+                    <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 2px;">
+                        {{ item.student_count }}
+                    </div>
+                </div>
+                <div style="height: 30px; width: 1px; background: var(--border-subtle);"></div>
+                <div>
+                    <div class="fs-xs text-muted">Created On</div>
+                    <div class="fs-xs text-secondary" style="margin-top: 4px;">
+                        {{ b.created_at.strftime('%d %b %Y') if b.created_at else '—' }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Subjects List -->
+            <div class="mb-2">
+                <div class="d-flex justify-between align-center mb-1">
+                    <span class="fs-xs fw-600 text-muted">Subjects ({{ item.subjects|length }})</span>
+                    {% if current_user.role in ('admin', 'teacher') %}
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="openBatchAddSubjectModal('{{ b.id }}', '{{ b.name }}')" style="padding: 1px 6px; font-size: 11px; color: var(--accent);">
+                        + Add Subject
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-1 flex-wrap">
+                    {% for subj in item.subjects %}
+                    <span class="subject-pill" title="{{ subj.name }}">
+                        {% if subj.code %}<strong>{{ subj.code }}</strong>: {% endif %}{{ subj.name }}
+                    </span>
+                    {% else %}
+                    <span class="fs-xs text-muted">No subjects assigned yet.</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-between align-center flex-wrap gap-1 mt-2">
+            <div class="d-flex gap-1">
+                <a href="{{ url_for('attendance.daily_attendance', batch=b.id) }}" class="btn btn-sm btn-primary" title="Take attendance for this batch">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                    Mark
+                </a>
+                <a href="{{ url_for('students.students_list', batch=b.id) }}" class="btn btn-sm btn-secondary" title="View students in this batch">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    Students
+                </a>
+            </div>
+
+            {% if current_user.role == 'admin' %}
+            <div class="d-flex gap-1 align-center">
+                <button type="button" class="btn btn-sm btn-ghost" title="Edit Batch" onclick="openEditBatchModal('{{ b.id }}', '{{ b.name }}', '{{ b.department }}', '{{ b.year }}', '{{ b.section }}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+                <form method="POST" action="{{ url_for('batches.toggle_batch', batch_id=b.id) }}" style="display:inline;" onsubmit="return confirm('Toggle status for {{ b.name }}?');">
+                    <button type="submit" class="btn btn-sm btn-ghost" title="{% if b.is_active %}Deactivate{% else %}Activate{% endif %}" style="padding: 6px 8px;">
+                        {% if b.is_active %}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                        {% else %}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        {% endif %}
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-icon">📁</div>
+        <h3>No batches created yet</h3>
+        <p>Start organizing students by creating your first academic cohort.</p>
+        {% if current_user.role == 'admin' %}
+        <button class="btn btn-primary btn-sm mt-2" onclick="openModal('addBatchModal')">
+            Create Batch
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Add Batch Modal -->
+{% if current_user.role == 'admin' %}
+<div class="modal-overlay" id="addBatchModal">
+    <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3>Create New Batch</h3>
+            <button type="button" class="btn-ghost" onclick="closeModal('addBatchModal')" style="padding: 4px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('batches.add_batch') }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="batchName">Batch Name *</label>
+                    <input type="text" id="batchName" name="name" class="form-control" placeholder="e.g. CSE-A 2024" required>
+                </div>
+                <div class="form-group">
+                    <label for="batchDept">Department *</label>
+                    <input type="text" id="batchDept" name="department" class="form-control" placeholder="e.g. Computer Science" required>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group mb-0">
+                        <label for="batchYear">Year *</label>
+                        <input type="number" id="batchYear" name="year" class="form-control" value="2024" min="2000" max="2099" required>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label for="batchSection">Section *</label>
+                        <input type="text" id="batchSection" name="section" class="form-control" placeholder="e.g. A" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addBatchModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Batch</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Batch Modal -->
+<div class="modal-overlay" id="editBatchModal">
+    <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3>Edit Batch</h3>
+            <button type="button" class="btn-ghost" onclick="closeModal('editBatchModal')" style="padding: 4px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="POST" id="editBatchForm" action="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editBatchName">Batch Name *</label>
+                    <input type="text" id="editBatchName" name="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="editBatchDept">Department *</label>
+                    <input type="text" id="editBatchDept" name="department" class="form-control" required>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group mb-0">
+                        <label for="editBatchYear">Year *</label>
+                        <input type="number" id="editBatchYear" name="year" class="form-control" min="2000" max="2099" required>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label for="editBatchSection">Section *</label>
+                        <input type="text" id="editBatchSection" name="section" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editBatchModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Batch</button>
+            </div>
+        </form>
+    </div>
+<!-- Add Subject Modal for Batches -->
+<div class="modal-overlay" id="batchAddSubjectModal">
+    <div class="modal-content" style="max-width: 440px;">
+        <div class="modal-header">
+            <h3>Add Subject to <span id="targetBatchName"></span></h3>
+            <button type="button" class="btn-ghost" onclick="closeModal('batchAddSubjectModal')" style="padding: 4px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="POST" id="batchAddSubjectForm" action="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="batchSubName">Subject Name *</label>
+                    <input type="text" id="batchSubName" name="name" class="form-control" placeholder="e.g. Cloud Computing" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label for="batchSubCode">Subject Code (Optional)</label>
+                    <input type="text" id="batchSubCode" name="code" class="form-control" placeholder="e.g. CS405">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('batchAddSubjectModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Subject</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openEditBatchModal(id, name, dept, year, section) {
+    const form = document.getElementById('editBatchForm');
+    form.action = `/batches/${id}/edit`;
+    document.getElementById('editBatchName').value = name;
+    document.getElementById('editBatchDept').value = dept;
+    document.getElementById('editBatchYear').value = year;
+    document.getElementById('editBatchSection').value = section;
+    openModal('editBatchModal');
+}
+
+function openBatchAddSubjectModal(batchId, batchName) {
+    const form = document.getElementById('batchAddSubjectForm');
+    form.action = `/batches/${batchId}/subjects/add`;
+    document.getElementById('targetBatchName').textContent = batchName;
+    document.getElementById('batchSubName').value = '';
+    document.getElementById('batchSubCode').value = '';
+    openModal('batchAddSubjectModal');
+}
+</script>
+{% endblock %}

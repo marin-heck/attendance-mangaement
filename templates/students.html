@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Students Directory — AttendTrack{% endblock %}
+{% block page_title %}Students{% endblock %}
+{% block page_subtitle %}Manage student records, batch assignments, and performance{% endblock %}
+
+{% block content %}
+<!-- Toolbar: Search, Filters & Action -->
+<div class="card mb-3">
+    <div class="toolbar" style="margin-bottom: 0;">
+        <form method="GET" action="{{ url_for('students.students_list') }}" class="d-flex align-center gap-2 flex-wrap" style="flex: 1;">
+            <div class="search-box">
+                <span class="search-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </span>
+                <input type="text" name="search" class="form-control" placeholder="Search by name, roll no, email..." value="{{ search }}">
+            </div>
+
+            <div style="min-width: 170px;">
+                <select name="batch" class="form-control" onchange="this.form.submit()">
+                    <option value="">All Batches</option>
+                    {% for b in batches %}
+                    <option value="{{ b.id }}" {% if selected_batch == b.id %}selected{% endif %}>
+                        {{ b.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="min-width: 130px;">
+                <select name="status" class="form-control" onchange="this.form.submit()">
+                    <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+                    <option value="all" {% if status == 'all' %}selected{% endif %}>All Records</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-secondary">
+                Filter
+            </button>
+            {% if search or selected_batch or status != 'active' %}
+            <a href="{{ url_for('students.students_list') }}" class="btn btn-ghost" title="Clear Filters">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+
+        <div class="toolbar-right">
+            {% if current_user.role in ('admin', 'teacher') %}
+            <button class="btn btn-primary" onclick="openModal('addStudentModal')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Student
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Students Count Summary -->
+<div class="d-flex justify-between align-center mb-2 px-1">
+    <div class="fs-xs text-muted">
+        Showing <strong class="text-heading">{{ students|length }}</strong> student{% if students|length != 1 %}s{% endif %}
+    </div>
+</div>
+
+<!-- Students Table -->
+{% if students %}
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">#</th>
+                    <th>Student</th>
+                    <th>Roll Number</th>
+                    <th>Batch</th>
+                    <th>Phone</th>
+                    <th>Attendance</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in students %}
+                {% set att_pct = s.attendance_percentage %}
+                <tr>
+                    <td class="text-muted fs-xs">{{ loop.index }}</td>
+                    <td>
+                        <div class="d-flex align-center gap-2">
+                            <div class="user-avatar" style="width: 34px; height: 34px; font-size: 13px;">
+                                {{ s.full_name[0] }}
+                            </div>
+                            <div>
+                                <a href="{{ url_for('students.student_profile', student_id=s.id) }}" class="fw-600 text-heading">
+                                    {{ s.full_name }}
+                                </a>
+                                <div class="fs-xs text-muted">{{ s.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <code class="fw-600" style="color: var(--text-heading); background: var(--bg-secondary); padding: 3px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                            {{ s.roll_number }}
+                        </code>
+                    </td>
+                    <td>
+                        <span class="badge badge-neutral">
+                            {{ s.batch.name if s.batch else 'None' }}
+                        </span>
+                    </td>
+                    <td class="fs-xs text-secondary">
+                        {{ s.phone if s.phone else '—' }}
+                    </td>
+                    <td style="min-width: 140px;">
+                        <div class="d-flex align-center gap-2">
+                            <div class="percentage-bar" style="flex: 1; height: 6px; margin: 0;">
+                                <div class="fill {% if att_pct >= 75 %}high{% elif att_pct >= 50 %}medium{% else %}low{% endif %}" style="width: {{ att_pct }}%"></div>
+                            </div>
+                            <span class="fs-xs fw-600" style="min-width: 36px; text-align: right; color: {% if att_pct >= 75 %}var(--success){% elif att_pct >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
+                                {{ att_pct }}%
+                            </span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if s.is_active %}
+                        <span class="badge badge-success">Active</span>
+                        {% else %}
+                        <span class="badge badge-danger">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div class="d-flex gap-1 justify-end align-center">
+                            <a href="{{ url_for('students.student_profile', student_id=s.id) }}" class="btn btn-sm btn-secondary" title="View Profile">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
+                            </a>
+                            {% if current_user.role == 'admin' %}
+                            <form method="POST" action="{{ url_for('students.toggle_student', student_id=s.id) }}" style="display: inline;" onsubmit="return confirm('Change status for {{ s.full_name }}?');">
+                                <button type="submit" class="btn btn-sm btn-ghost" title="{% if s.is_active %}Deactivate{% else %}Activate{% endif %}" style="padding: 6px 8px;">
+                                    {% if s.is_active %}
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                                    {% else %}
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                                    {% endif %}
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <h3>No students found</h3>
+        <p>No students match your selected filters. Try clearing your search or filters.</p>
+        {% if current_user.role in ('admin', 'teacher') %}
+        <button class="btn btn-primary btn-sm mt-2" onclick="openModal('addStudentModal')">
+            Add New Student
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Add Student Modal -->
+{% if current_user.role in ('admin', 'teacher') %}
+<div class="modal-overlay" id="addStudentModal">
+    <div class="modal-content" style="max-width: 540px;">
+        <div class="modal-header">
+            <h3>Add New Student</h3>
+            <button type="button" class="btn-ghost" onclick="closeModal('addStudentModal')" style="padding: 4px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('students.add_student') }}">
+            <div class="modal-body">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="fullName">Full Name *</label>
+                        <input type="text" id="fullName" name="full_name" class="form-control" placeholder="e.g. Aarav Sharma" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="rollNumber">Roll Number *</label>
+                        <input type="text" id="rollNumber" name="roll_number" class="form-control" placeholder="e.g. CS2024099" required>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="studentEmail">Email Address *</label>
+                        <input type="email" id="studentEmail" name="email" class="form-control" placeholder="aarav@student.edu" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="studentPhone">Phone Number</label>
+                        <input type="tel" id="studentPhone" name="phone" class="form-control" placeholder="e.g. 9876543210">
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="studentBatch">Batch Assignment *</label>
+                        <select id="studentBatch" name="batch_id" class="form-control" required>
+                            <option value="">-- Choose Batch --</option>
+                            {% for b in batches %}
+                            <option value="{{ b.id }}" {% if selected_batch == b.id %}selected{% endif %}>
+                                {{ b.name }} ({{ b.department }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="studentDob">Date of Birth</label>
+                        <input type="date" id="studentDob" name="date_of_birth" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group mb-0">
+                    <label for="studentAddress">Residential Address</label>
+                    <textarea id="studentAddress" name="address" class="form-control" rows="2" placeholder="Street, City, Postal Code"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addStudentModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Student</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

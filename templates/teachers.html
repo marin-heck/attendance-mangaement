@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Faculty & Staff — AttendTrack{% endblock %}
+{% block page_title %}Faculty & Teachers{% endblock %}
+{% block page_subtitle %}Manage instructors, teaching assistants, and administrative staff{% endblock %}
+
+{% block content %}
+<!-- Toolbar -->
+<div class="card mb-3">
+    <div class="d-flex justify-between align-center flex-wrap gap-2">
+        <div class="fs-xs text-muted">
+            Total Staff: <strong class="text-heading">{{ teachers|length }}</strong>
+        </div>
+        <div>
+            <button class="btn btn-primary" onclick="openModal('addTeacherModal')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Faculty Member
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Teachers Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">#</th>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in teachers %}
+                <tr>
+                    <td class="text-muted fs-xs">{{ loop.index }}</td>
+                    <td>
+                        <div class="d-flex align-center gap-2">
+                            <div class="user-avatar" style="width: 34px; height: 34px; font-size: 13px; background: {% if t.role == 'admin' %}linear-gradient(135deg, #0284c7, #0ea5e9){% else %}linear-gradient(135deg, #0284c7, #38bdf8){% endif %};">
+                                {{ t.full_name[0] }}
+                            </div>
+                            <div>
+                                <span class="fw-600 text-heading">{{ t.full_name }}</span>
+                                {% if t.id == current_user.id %}
+                                <span class="badge badge-neutral fs-xs" style="margin-left: 4px;">You</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <code class="fw-600" style="color: var(--text-heading); background: var(--bg-secondary); padding: 3px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                            @{{ t.username }}
+                        </code>
+                    </td>
+                    <td class="fs-xs text-secondary">{{ t.email }}</td>
+                    <td>
+                        {% if t.role == 'admin' %}
+                        <span class="badge badge-accent">Administrator</span>
+                        {% else %}
+                        <span class="badge badge-info">Teacher</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if t.is_active_user %}
+                        <span class="badge badge-success">Active</span>
+                        {% else %}
+                        <span class="badge badge-danger">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="fs-xs text-muted">
+                        {{ t.created_at.strftime('%d %b %Y') if t.created_at else '—' }}
+                    </td>
+                    <td style="text-align: right;">
+                        {% if t.id != current_user.id %}
+                        <form method="POST" action="{{ url_for('teachers.toggle_teacher', user_id=t.id) }}" style="display:inline;" onsubmit="return confirm('Toggle status for {{ t.full_name }}?');">
+                            <button type="submit" class="btn btn-sm btn-ghost" title="{% if t.is_active_user %}Deactivate{% else %}Activate{% endif %}" style="padding: 6px 8px;">
+                                {% if t.is_active_user %}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                                {% else %}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                                {% endif %}
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="fs-xs text-muted">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Teacher Modal -->
+<div class="modal-overlay" id="addTeacherModal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Add Faculty Member</h3>
+            <button type="button" class="btn-ghost" onclick="closeModal('addTeacherModal')" style="padding: 4px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('teachers.add_teacher') }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="facName">Full Name *</label>
+                    <input type="text" id="facName" name="full_name" class="form-control" placeholder="Prof. Rajesh Sharma" required>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="facUser">Username *</label>
+                        <input type="text" id="facUser" name="username" class="form-control" placeholder="rsharma" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="facRole">Role *</label>
+                        <select id="facRole" name="role" class="form-control" required>
+                            <option value="teacher">Teacher</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="facEmail">Email Address *</label>
+                    <input type="email" id="facEmail" name="email" class="form-control" placeholder="rsharma@school.edu" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label for="facPass">Initial Password *</label>
+                    <input type="password" id="facPass" name="password" class="form-control" placeholder="••••••••" required minlength="6">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addTeacherModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Member</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

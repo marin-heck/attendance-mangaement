@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Reports & Analytics — AttendTrack{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+{% block page_subtitle %}Generate attendance summaries, audit student records, and export CSV reports{% endblock %}
+
+{% block content %}
+<!-- Filters Toolbar -->
+<div class="card mb-3">
+    <form method="GET" action="{{ url_for('reports.reports') }}" class="d-flex align-center gap-2 flex-wrap" id="reportFilterForm">
+        <div class="form-group mb-0" style="min-width: 200px;">
+            <label for="repBatch" class="fs-xs fw-600 text-muted">Select Batch</label>
+            <select name="batch" id="repBatch" class="form-control" onchange="document.getElementById('reportFilterForm').submit()">
+                <option value="">-- Choose Batch --</option>
+                {% for b in batches %}
+                <option value="{{ b.id }}" {% if selected_batch == b.id %}selected{% endif %}>
+                    {{ b.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {% if selected_batch and subjects %}
+        <div class="form-group mb-0" style="min-width: 180px;">
+            <label for="repSubject" class="fs-xs fw-600 text-muted">Subject</label>
+            <select name="subject" id="repSubject" class="form-control" onchange="document.getElementById('reportFilterForm').submit()">
+                <option value="">All Subjects</option>
+                {% for s in subjects %}
+                <option value="{{ s.id }}" {% if selected_subject == s.id %}selected{% endif %}>
+                    {% if s.code %}{{ s.code }} - {% endif %}{{ s.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="form-group mb-0" style="min-width: 150px;">
+            <label for="repStart" class="fs-xs fw-600 text-muted">From Date</label>
+            <input type="date" name="start" id="repStart" class="form-control" value="{{ start_date }}" onchange="document.getElementById('reportFilterForm').submit()">
+        </div>
+
+        <div class="form-group mb-0" style="min-width: 150px;">
+            <label for="repEnd" class="fs-xs fw-600 text-muted">To Date</label>
+            <input type="date" name="end" id="repEnd" class="form-control" value="{{ end_date }}" onchange="document.getElementById('reportFilterForm').submit()">
+        </div>
+
+        <div class="d-flex align-end gap-1" style="padding-top: 18px; margin-left: auto;">
+            <button type="submit" class="btn btn-secondary">
+                Generate
+            </button>
+            {% if selected_batch %}
+            <a href="{{ url_for('reports.export_report', batch=selected_batch, subject=selected_subject or '', start=start_date, end=end_date) }}" class="btn btn-primary" title="Download CSV Report">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export CSV
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{% if selected_batch and report_data %}
+<!-- Aggregate Summary Cards -->
+{% set total_students_count = report_data|length %}
+{% set total_sessions_sum = report_data|map(attribute='total')|sum %}
+{% set total_presents_sum = report_data|map(attribute='present')|sum %}
+{% set total_absents_sum = report_data|map(attribute='absent')|sum %}
+{% set avg_pct = ((total_presents_sum / total_sessions_sum * 100)|round(1)) if total_sessions_sum > 0 else 0 %}
+{% set low_attendance_count = report_data|selectattr('percentage', '<', 75)|list|length %}
+
+<div class="stats-grid mb-3">
+    <div class="stat-card accent">
+        <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        </div>
+        <div class="stat-value">{{ total_students_count }}</div>
+        <div class="stat-label">Students Evaluated</div>
+    </div>
+
+    <div class="stat-card {% if avg_pct >= 75 %}success{% elif avg_pct >= 60 %}warning{% else %}danger{% endif %}">
+        <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="stat-value">{{ avg_pct }}%</div>
+        <div class="stat-label">Batch Average</div>
+    </div>
+
+    <div class="stat-card success">
+        <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="stat-value">{{ total_presents_sum }}</div>
+        <div class="stat-label">Total Present Marks</div>
+    </div>
+
+    <div class="stat-card {% if low_attendance_count > 0 %}danger{% else %}info{% endif %}">
+        <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div class="stat-value">{{ low_attendance_count }}</div>
+        <div class="stat-label">Below 75% Threshold</div>
+    </div>
+</div>
+
+<!-- Detailed Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="card-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border-color);">
+        <div>
+            <h3>Attendance Breakdown</h3>
+            <span class="fs-xs text-muted">Window: {{ start_date }} to {{ end_date }}</span>
+        </div>
+        <div class="d-flex align-center gap-1">
+            <span class="fs-xs text-muted">Minimum Requirement: <strong>75%</strong></span>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">#</th>
+                    <th style="width: 130px;">Roll No</th>
+                    <th>Student Name</th>
+                    <th style="text-align: center;">Total Classes</th>
+                    <th style="text-align: center; color: var(--success);">Present</th>
+                    <th style="text-align: center; color: var(--danger);">Absent</th>
+                    <th style="text-align: center; color: var(--warning);">Late</th>
+                    <th style="min-width: 170px;">Attendance Rate</th>
+                    <th style="text-align: right;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in report_data %}
+                <tr>
+                    <td class="text-muted fs-xs">{{ loop.index }}</td>
+                    <td>
+                        <code class="fw-600" style="color: var(--text-heading); background: var(--bg-secondary); padding: 3px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                            {{ r.student.roll_number }}
+                        </code>
+                    </td>
+                    <td>
+                        <div class="d-flex align-center gap-2">
+                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 12px;">
+                                {{ r.student.full_name[0] }}
+                            </div>
+                            <div>
+                                <a href="{{ url_for('students.student_profile', student_id=r.student.id) }}" class="fw-600 text-heading">
+                                    {{ r.student.full_name }}
+                                </a>
+                                <div class="fs-xs text-muted">{{ r.student.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="text-align: center;" class="fw-600 text-heading">
+                        {{ r.total }}
+                    </td>
+                    <td style="text-align: center;" class="fw-600 text-success">
+                        {{ r.present }}
+                    </td>
+                    <td style="text-align: center;" class="fw-600 text-danger">
+                        {{ r.absent }}
+                    </td>
+                    <td style="text-align: center;" class="fw-600 text-warning">
+                        {{ r.late }}
+                    </td>
+                    <td>
+                        <div class="d-flex align-center gap-2">
+                            <div class="percentage-bar" style="flex: 1; height: 6px; margin: 0;">
+                                <div class="fill {% if r.percentage >= 75 %}high{% elif r.percentage >= 60 %}medium{% else %}low{% endif %}" style="width: {{ r.percentage }}%;"></div>
+                            </div>
+                            <span class="fs-xs fw-600" style="min-width: 42px; text-align: right; color: {% if r.percentage >= 75 %}var(--success){% elif r.percentage >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
+                                {{ r.percentage }}%
+                            </span>
+                        </div>
+                    </td>
+                    <td style="text-align: right;">
+                        {% if r.percentage >= 75 %}
+                        <span class="badge badge-success">Eligible</span>
+                        {% else %}
+                        <span class="badge badge-danger">Shortage</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% elif selected_batch and not report_data %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <h3>No attendance data recorded</h3>
+        <p>No records found for this batch between {{ start_date }} and {{ end_date }}.</p>
+        <a href="{{ url_for('attendance.daily_attendance', batch=selected_batch) }}" class="btn btn-primary btn-sm mt-2">
+            Record Attendance Now
+        </a>
+    </div>
+</div>
+
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-icon">📈</div>
+        <h3>Select a Batch to Generate Report</h3>
+        <p>Select an academic cohort and date range above to view attendance analytics and export CSV data.</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

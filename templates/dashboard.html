@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — AttendTrack{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Overview of attendance statistics and activity{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="stat-card accent">
+        <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <div class="stat-value">{{ total_students }}</div>
+        <div class="stat-label">Total Students</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="stat-value">{{ today_rate }}%</div>
+        <div class="stat-label">Today's Attendance</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        </div>
+        <div class="stat-value">{{ total_batches }}</div>
+        <div class="stat-label">Active Batches</div>
+    </div>
+    <div class="stat-card info">
+        <div class="stat-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="stat-value">{{ total_teachers }}</div>
+        <div class="stat-label">Teachers</div>
+    </div>
+</div>
+
+<!-- Today's Breakdown + Weekly Chart -->
+<div class="grid-2 mb-3">
+    <!-- Today's Breakdown -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Today's Breakdown</h3>
+            <span class="fs-xs text-muted">{{ today_total }} records</span>
+        </div>
+        {% if today_total > 0 %}
+        <div class="d-flex gap-2 mb-2">
+            <div style="flex:1; text-align: center; padding: 14px; background: var(--success-subtle); border-radius: var(--radius-md); border: 1px solid var(--success-border);">
+                <div style="font-size: 24px; font-weight: 800; color: var(--success-text);">{{ today_present }}</div>
+                <div class="fs-xs fw-600" style="color: var(--success-text); margin-top: 4px;">Present</div>
+            </div>
+            <div style="flex:1; text-align: center; padding: 14px; background: var(--danger-subtle); border-radius: var(--radius-md); border: 1px solid var(--danger-border);">
+                <div style="font-size: 24px; font-weight: 800; color: var(--danger-text);">{{ today_absent }}</div>
+                <div class="fs-xs fw-600" style="color: var(--danger-text); margin-top: 4px;">Absent</div>
+            </div>
+            <div style="flex:1; text-align: center; padding: 14px; background: var(--warning-subtle); border-radius: var(--radius-md); border: 1px solid var(--warning-border);">
+                <div style="font-size: 24px; font-weight: 800; color: var(--warning-text);">{{ today_late }}</div>
+                <div class="fs-xs fw-600" style="color: var(--warning-text); margin-top: 4px;">Late</div>
+            </div>
+        </div>
+        <div class="percentage-bar">
+            <div class="fill {% if today_rate >= 75 %}high{% elif today_rate >= 50 %}medium{% else %}low{% endif %}" style="width: {{ today_rate }}%"></div>
+        </div>
+        <div class="d-flex justify-between mt-1">
+            <span class="fs-xs text-muted">Attendance rate</span>
+            <span class="fs-xs fw-600" style="color: {% if today_rate >= 75 %}var(--success){% elif today_rate >= 50 %}var(--warning){% else %}var(--danger){% endif %}">{{ today_rate }}%</span>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding: 24px;">
+            <div class="empty-icon">📋</div>
+            <h3>No attendance marked today</h3>
+            <p>Start marking attendance for today's classes</p>
+            <a href="{{ url_for('attendance.daily_attendance') }}" class="btn btn-primary btn-sm mt-2">
+                Mark Attendance
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Weekly Trend -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Weekly Trend</h3>
+            <span class="fs-xs text-muted">Last 7 days</span>
+        </div>
+        <div class="chart-bars">
+            {% for day in weekly_data %}
+            <div class="chart-bar-wrapper">
+                <div class="chart-bar-value">{{ day.rate }}%</div>
+                <div class="chart-bar" style="height: {{ day.rate if day.rate > 0 else 3 }}%;" title="{{ day.full_date }}: {{ day.rate }}% ({{ day.present }}/{{ day.total }})"></div>
+                <div class="chart-bar-label">{{ day.date }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Batch-wise Attendance + Low Attendance -->
+<div class="grid-2 mb-3">
+    <!-- Batch-wise Stats -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Batch-wise Attendance</h3>
+            <span class="fs-xs text-muted">Today</span>
+        </div>
+        {% if batch_stats %}
+        {% for batch in batch_stats %}
+        <div style="margin-bottom: 14px;">
+            <div class="d-flex justify-between align-center mb-1">
+                <div>
+                    <span class="fw-600 fs-sm">{{ batch.name }}</span>
+                    <span class="fs-xs text-muted" style="margin-left: 6px;">{{ batch.department }}</span>
+                </div>
+                <span class="fs-xs fw-600" style="color: {% if batch.rate >= 75 %}var(--success){% elif batch.rate >= 50 %}var(--warning){% else %}var(--danger){% endif %}">
+                    {{ batch.present }}/{{ batch.total }} ({{ batch.rate }}%)
+                </span>
+            </div>
+            <div class="percentage-bar">
+                <div class="fill {% if batch.rate >= 75 %}high{% elif batch.rate >= 50 %}medium{% else %}low{% endif %}" style="width: {{ batch.rate }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state" style="padding: 20px;">
+            <p class="text-muted">No attendance data for today yet</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Low Attendance Alerts -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Low Attendance Alerts</h3>
+            <span class="badge danger" style="font-size: 10px;">Below 75%</span>
+        </div>
+        {% if low_attendance_students %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Batch</th>
+                        <th>Attendance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in low_attendance_students %}
+                    <tr>
+                        <td>
+                            <div class="fw-600">{{ s.name }}</div>
+                            <div class="fs-xs text-muted">{{ s.roll }}</div>
+                        </td>
+                        <td class="fs-xs text-muted">{{ s.batch }}</td>
+                        <td>
+                            <span class="badge {% if s.percentage >= 60 %}late{% else %}absent{% endif %}">
+                                {{ s.percentage }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding: 20px;">
+            <div class="empty-icon">🎉</div>
+            <h3>All students above 75%</h3>
+            <p>No attendance alerts at this time</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="card">
+    <div class="card-header">
+        <h3>Recent Activity</h3>
+        <a href="{{ url_for('attendance.daily_attendance') }}" class="btn btn-ghost btn-sm">View All</a>
+    </div>
+    {% if recent_activity %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Roll No.</th>
+                    <th>Batch</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in recent_activity %}
+                <tr>
+                    <td class="fw-600">{{ rec.student_name }}</td>
+                    <td class="text-muted">{{ rec.roll }}</td>
+                    <td class="text-muted">{{ rec.batch }}</td>
+                    <td class="text-muted">{{ rec.date }}</td>
+                    <td><span class="badge {{ rec.status }}">{{ rec.status }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <h3>No recent activity</h3>
+        <p>Attendance records will appear here once marked</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

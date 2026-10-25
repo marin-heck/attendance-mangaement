@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Account Settings — AttendTrack{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block page_subtitle %}Manage your account credentials, profile details, and system preferences{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+    <!-- Left Column: Profile & Security -->
+    <div class="d-flex flex-column gap-3">
+        <!-- Profile Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Profile Information</h3>
+                <span class="badge badge-accent">{{ current_user.role|capitalize }}</span>
+            </div>
+
+            <form method="POST" action="{{ url_for('settings.update_profile') }}">
+                <div class="d-flex align-center gap-3 mb-3 pb-3" style="border-bottom: 1px solid var(--border-subtle);">
+                    <div class="profile-avatar" style="width: 56px; height: 56px; font-size: 20px;">
+                        {{ current_user.full_name[0] }}
+                    </div>
+                    <div>
+                        <div class="fw-600 text-heading">{{ current_user.full_name }}</div>
+                        <div class="fs-xs text-muted">@{{ current_user.username }}</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="profName">Full Name</label>
+                    <input type="text" id="profName" name="full_name" class="form-control" value="{{ current_user.full_name }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="profEmail">Email Address</label>
+                    <input type="email" id="profEmail" name="email" class="form-control" value="{{ current_user.email }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" class="form-control" value="{{ current_user.username }}" disabled title="Username cannot be modified">
+                </div>
+
+                <div class="d-flex justify-end">
+                    <button type="submit" class="btn btn-primary">
+                        Save Profile
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Password Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Change Password</h3>
+            </div>
+
+            <form method="POST" action="{{ url_for('settings.change_password') }}">
+                <div class="form-group">
+                    <label for="currPass">Current Password</label>
+                    <input type="password" id="currPass" name="current_password" class="form-control" placeholder="••••••••" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="newPass">New Password</label>
+                    <input type="password" id="newPass" name="new_password" class="form-control" placeholder="At least 6 characters" required minlength="6">
+                </div>
+
+                <div class="form-group">
+                    <label for="confPass">Confirm New Password</label>
+                    <input type="password" id="confPass" name="confirm_password" class="form-control" placeholder="Repeat new password" required minlength="6">
+                </div>
+
+                <div class="d-flex justify-end">
+                    <button type="submit" class="btn btn-secondary">
+                        Update Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: System Info & Guidelines -->
+    <div class="d-flex flex-column gap-3">
+        <!-- System Info Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>System Status</h3>
+                <span class="badge badge-success">Online</span>
+            </div>
+
+            <div class="d-flex flex-column gap-2">
+                <div class="d-flex justify-between py-2" style="border-bottom: 1px solid var(--border-subtle);">
+                    <span class="fs-xs text-muted">Application Version</span>
+                    <span class="fs-xs fw-600 text-heading">AttendTrack v1.0.0</span>
+                </div>
+                <div class="d-flex justify-between py-2" style="border-bottom: 1px solid var(--border-subtle);">
+                    <span class="fs-xs text-muted">Backend Engine</span>
+                    <span class="fs-xs fw-600 text-heading">Python / Flask 3.x</span>
+                </div>
+                <div class="d-flex justify-between py-2" style="border-bottom: 1px solid var(--border-subtle);">
+                    <span class="fs-xs text-muted">Database Storage</span>
+                    <span class="fs-xs fw-600 text-heading">SQLite 3 (attendance.db)</span>
+                </div>
+                <div class="d-flex justify-between py-2" style="border-bottom: 1px solid var(--border-subtle);">
+                    <span class="fs-xs text-muted">Authentication Model</span>
+                    <span class="fs-xs fw-600 text-heading">Werkzeug PBKDF2:SHA256</span>
+                </div>
+                <div class="d-flex justify-between py-2">
+                    <span class="fs-xs text-muted">Active Role</span>
+                    <span class="fs-xs fw-600 text-heading">{{ current_user.role|capitalize }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Policy Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Attendance Policies</h3>
+            </div>
+
+            <div class="d-flex flex-column gap-3 fs-xs text-secondary">
+                <div class="d-flex gap-2">
+                    <div style="color: var(--success); font-size: 16px;">✓</div>
+                    <div>
+                        <strong class="text-heading">75% Minimum Attendance:</strong> Students maintaining 75% or greater cumulative attendance are deemed in Good Standing and examination eligible.
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <div style="color: var(--warning); font-size: 16px;">⚠</div>
+                    <div>
+                        <strong class="text-heading">Late Policy:</strong> Late entries are tracked separately in the analytics log and can be adjusted per institutional bylaws.
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <div style="color: var(--info); font-size: 16px;">ℹ</div>
+                    <div>
+                        <strong class="text-heading">Exporting Data:</strong> Comprehensive CSV audit trails can be exported at any time from the Reports tab.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
